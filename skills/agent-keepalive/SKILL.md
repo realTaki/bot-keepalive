@@ -22,7 +22,7 @@ have to run continuously. Jobs that can resume from a checkpoint may be fine jus
 Start the job so it survives the agent's turn ending, then register it in one shared folder:
 
 ```bash
-mkdir -p ~/.keepalive/jobs
+mkdir -p ~/.keepalive/jobs ~/.keepalive/ended
 cd /path/to/job
 setsid nohup bash -c '<your command>; touch DONE' > run.log 2>&1 < /dev/null &
 echo "$! $(pwd)" > ~/.keepalive/jobs/<job-name>
@@ -49,10 +49,10 @@ modifies anything. Give it a hard deadline (an absolute time) and this loop:
    nothing is running:
    ```bash
    alive() { for f in ~/.keepalive/jobs/*; do [ -e "$f" ] || continue; read pid dir < "$f"
-     if [ -f "$dir/DONE" ] || ! kill -0 "$pid" 2>/dev/null; then mv "$f" "$f.ended"; else echo 1; fi
+     if [ -f "$dir/DONE" ] || ! kill -0 "$pid" 2>/dev/null; then mv "$f" ~/.keepalive/ended/; else echo 1; fi
    done; }
    for i in $(seq 1 150); do [ -z "$(alive)" ] && break; sleep 5; done
-   date; ls ~/.keepalive/jobs
+   date; ls ~/.keepalive/jobs ~/.keepalive/ended
    ```
    Set the loop count so that 5 s × count stays under the platform's blocking limit.
 2. If jobs are still running and the deadline hasn't passed, start the next wait right away.
