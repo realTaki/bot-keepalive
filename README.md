@@ -1,6 +1,6 @@
 # bot-keepalive
 
-A [Grok Bot](https://grokbot.com) skill that keeps a bot's cloud computer awake while long jobs
+A [Grok Bot](https://x.ai/bot) skill that keeps a bot's cloud computer awake while long jobs
 run. Grok Bot suspends the whole computer whenever no bot turn is active, so background jobs freeze
 too, `nohup` and `tmux` included. Routines can't fix this because the computer still freezes
 between runs.
