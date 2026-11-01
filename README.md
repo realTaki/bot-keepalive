@@ -29,6 +29,9 @@ A bot turn that is **waiting on a tool call counts as active**, and a single She
 2. Run **one** global watcher subagent at **low effort**, outside your main chat so it never blocks you.
 3. Each turn, the watcher makes one Shell call: a bash loop that checks every 5 seconds whether the jobs are done, for about 12 minutes, then returns.
 4. Repeat until every job is done or a hard deadline passes. A lock file makes sure only one watcher runs per account, no matter how many bots start jobs.
+5. Grok Bot stops background subagents after 50 minutes, so the watcher runs as a relay: each leg does at most 3 waits (about 39 minutes), exits cleanly, and the main chat starts the next leg.
+
+Jobs on remote compute (Kaggle, Colab) and waits for a quota reset don't need a watcher at all: a one-off routine at the expected finish time, plus an hourly fallback routine that deletes itself, is enough. For jobs over 2 hours, prefer that or remote compute, since every relay leg also wakes the main chat.
 
 The 5-second polling happens inside bash, not in the model. The agent only wakes once per ~13 minutes, for one tool call.
 
@@ -66,7 +69,7 @@ The full method, loop and rules are in [`SKILL.md`](skills/bot-keepalive/SKILL.m
 
 **Routine 为什么不行。** Routine 最短 5 分钟一次，跟休眠时间一样；而且不准时，高峰期误差能到 15 到 30 分钟。所以就算 5 分钟一次，电脑还是反复休眠，任务挂掉，修复重启还要额外花 Token。每次 Routine 都是一个新 bot，要从头读上下文、跑好几个 turn 才结束。
 
-**解法。** 等待 tool call 返回的 turn 算活跃，单次 Shell 调用最长能阻塞 13 分钟。所以长任务脱离会话启动并登记到 `~/.keepalive/jobs/`，再开**一个**全局 low effort 守护 subagent（不阻塞你正常对话）：每个 turn 只执行一条 bash 命令，在命令里每 5 秒检查一次任务，约 12 分钟返回一次，直到全部完成或到截止时间。锁文件保证整个账号只有一个守护。
+**解法。** 等待 tool call 返回的 turn 算活跃，单次 Shell 调用最长能阻塞 13 分钟。所以长任务脱离会话启动并登记到 `~/.keepalive/jobs/`，再开**一个**全局 low effort 守护 subagent（不阻塞你正常对话）：每个 turn 只执行一条 bash 命令，在命令里每 5 秒检查一次任务，约 12 分钟返回一次，直到全部完成或到截止时间。锁文件保证整个账号只有一个守护。后台 subagent 最多跑 50 分钟就会被平台停掉，所以守护按接力跑：每一棒最多 3 轮（约 39 分钟），干净退出，主会话开下一棒。Kaggle、Colab 这类远端任务和等额度重置不用守护，用预计完成时刻的一次性 Routine 加每小时自删的兜底 Routine 盯就行；超过 2 小时的任务优先这么做。
 
 **安装。** 把上面那个 `SKILL.md` 链接发给你的 Grok Bot，让它存成技能就行。
 
